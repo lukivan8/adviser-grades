@@ -45,8 +45,6 @@ def students(browser: WebDriver, cookie: str):
 # TODO: Распаралелить эту функцию на каждого студента
 def grades(browser: WebDriver, cookie: str, student_id: int):
     browser.get(f"https://univer.kstu.kz/advicer/students/attendence/{student_id}/")
-    browser.add_cookie({"name": ".ASPXAUTH", "value": cookie})
-    browser.refresh()
     rows_grades = browser.find_elements(By.CLASS_NAME, "tt")
 
     grades = [
@@ -81,7 +79,6 @@ def get_sections(browser: WebDriver):
 
     mid_counts = []
 
-    time1 = time.perf_counter()
     for idx, elems in enumerate(top_elements):
         if idx == len(top_elements) - 1:
             break
@@ -89,17 +86,19 @@ def get_sections(browser: WebDriver):
         end_top = top_elements[idx + 1]
 
         # Filter mid elements between current pair of "top" elements
-        # TODO: improve this bottleneck
-        mid_elements_between_top = [
-            mid
-            for mid in mid_elements
-            if start_top.location["y"] < mid.location["y"] < end_top.location["y"]
-        ]
+        mid_elements_between_top = []
+        for mid in mid_elements:
+            if mid.location["y"] > start_top.location["y"]:
+                mid_elements.remove(mid)
+            elif mid.location["y"] > end_top.location["y"]:
+                break
+            else:
+                mid_elements_between_top.append(mid)
+                mid_elements.remove(mid)
 
         mid_count = len(mid_elements_between_top)
 
         mid_counts.append(mid_count)
-    print(f"Time elements: {time.perf_counter() - time1}")
     class_titles = browser.find_elements(By.CLASS_NAME, "ct")
     class_titles = [
         title.text.split(" (")[0]
