@@ -3,6 +3,7 @@ from selenium import webdriver as drv
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.remote.webdriver import WebDriver
+from selenium.webdriver.remote.webelement import WebElement
 
 
 def create_instance(lang):
@@ -43,15 +44,17 @@ def students(browser: WebDriver, cookie: str):
 
 
 # TODO: Распаралелить эту функцию на каждого студента
-def grades(browser: WebDriver, cookie: str, student_id: int):
+def grades(browser: WebDriver, student_id: int):
     browser.get(f"https://univer.kstu.kz/advicer/students/attendence/{student_id}/")
+    timer = time.perf_counter()
+    # TODO: improve bottleneck
     rows_grades = browser.find_elements(By.CLASS_NAME, "tt")
-
     grades = [
-        list(map(lambda tag: tag.text, rows.find_elements(By.TAG_NAME, "td")))
+        [tag.text for tag in rows.find_elements(By.TAG_NAME, "td")][:-2]
         for rows in rows_grades
     ]
-    grades = list(map(lambda grade: grade[0:-2], grades))
+    print("Grades:", time.perf_counter() - timer)
+    section_timer = time.perf_counter()
     sections_map = get_sections(browser)
     count = 0
     for title, sections in sections_map.items():
@@ -60,12 +63,12 @@ def grades(browser: WebDriver, cookie: str, student_id: int):
             sections_map[title][section] = [grades[count], grades[count + 1]]
 
             count += 2
+    print("Sections:", time.perf_counter() - section_timer)
     return sections_map
 
 
 # works only if currently on student's grades page
 def get_sections(browser: WebDriver):
-    t1 = time.perf_counter()
     browser.execute_script(
         "arguments[0].setAttribute('class', 'top')",
         browser.find_element(By.CLASS_NAME, "bot"),
@@ -116,5 +119,21 @@ def get_sections(browser: WebDriver):
     for title, count in sections_map.items():
         sections_map[title] = grades_types[last_count : last_count + count // 2]
         last_count += count // 2
-    print(time.perf_counter() - t1)
     return sections_map
+
+def attestation(browser: WebDriver, student_id: int, name:str):
+    browser.get(f"https://univer.kstu.kz/advicer/students/attestation/{student_id}/")
+    rows_grades = browser.find_elements(By.CLASS_NAME, "link")
+    grade_map = [get_row(row, name) for row in rows_grades]
+    return grade_map
+
+def get_row(row: WebElement, name: str):
+    cells = row.find_elements(By.CSS_SELECTOR, "*")
+    row_map = {}
+    row_map["student"] = name
+    row_map["title"] = cells[2].text
+    row_map["rk1"] = int(cells[6].text)
+    row_map["rk2"] = int(cells[7].text)
+    row_map["exam"] = int(cells[8].text)
+    row_map["total"] = int(cells[9].text)
+    return row_map
